@@ -1,0 +1,58 @@
+version: "3.9"
+
+networks:
+  log_net:
+    driver: bridge
+
+services:
+  flask-app:
+    build: ./app
+    container_name: flask-app
+    ports:
+      - "8000:8000"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      - otel-collector
+    networks:
+      - log_net
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    volumes:
+      - ./log_aggregation/otel-collector/otel-collector-config.yml:/etc/otel-collector-config.yaml
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317" # Default port for OTLP gRPC
+      - "4318:4318" # Default port for OTLP HTTP
+    networks:
+      - log_net
+    depends_on:
+      - loki
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    volumes:
+      - ./log_aggregation/loki/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+      - "9096:9096"
+    networks:
+      - log_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana_conf/config/grafana.ini:/etc/grafana/grafana.ini:rw
+      - ./grafana_conf/provisioning:/etc/grafana/provisioning:rw
+      - ./grafana_conf/dashboards:/var/lib/grafana/dashboards:rw
+    depends_on:
+      - loki
+    networks:
+      - log_net

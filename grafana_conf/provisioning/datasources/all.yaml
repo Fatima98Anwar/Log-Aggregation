@@ -1,0 +1,8 @@
+datasources:
+  - name: "loki"
+    access: "proxy"
+    editable: true
+    org_id: 1
+    type: "loki"
+    url: "http://loki:3100"
+    version: 1
